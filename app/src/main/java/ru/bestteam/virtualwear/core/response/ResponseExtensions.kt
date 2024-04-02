@@ -52,8 +52,6 @@ inline fun <T> Response<T>.mapIfError(it: (Response.Error) -> Response<T>): Resp
 inline fun <T> Response<T>.mapException(mapper: (Throwable) -> Throwable): Response<T> {
     return when (this) {
         is Response.Error.Network -> Response.Error.Network(mapper(this.exception), message)
-        is Response.Error.Bluetooth -> Response.Error.Bluetooth(mapper(this.exception), message)
-        is Response.Error.Wifi -> Response.Error.Wifi(mapper(this.exception), message)
         is Response.Error.General -> Response.Error.General(mapper(this.exception), message)
         is Response.Success -> this
     }
@@ -149,5 +147,3 @@ suspend inline fun <T> retry(
 inline fun <T> T.asResponse() = Response.Success(this)
 inline fun Throwable.asGeneralError() = Response.Error.General(this, this.message)
 inline fun Throwable.asNetworkError() = Response.Error.Network(this, this.message)
-inline fun Throwable.asBluetoothError() = Response.Error.Bluetooth(this, this.message)
-inline fun Throwable.asWifiError() = Response.Error.Wifi(this, this.message)

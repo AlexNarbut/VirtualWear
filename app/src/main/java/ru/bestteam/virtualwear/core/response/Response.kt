@@ -22,19 +22,6 @@ sealed class Response<out T> {
             override val message: String? = null,
         ) : Error()
 
-        @Serializable
-        class Bluetooth(
-            @Polymorphic
-            override val exception: Throwable,
-            override val message: String? = null,
-        ) : Error()
-
-        @Serializable
-        class Wifi(
-            @Polymorphic
-            override val exception: Throwable,
-            override val message: String? = null,
-        ) : Error()
 
         @Serializable
         class General(
