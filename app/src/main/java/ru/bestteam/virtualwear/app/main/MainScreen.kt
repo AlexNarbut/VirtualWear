@@ -7,12 +7,14 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,7 +28,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
 import ru.bestteam.virtualwear.feature.camera.presentation.CameraPreview
@@ -77,49 +81,37 @@ fun MainScreen(viewModel: MainViewModel) {
             setImageAnalysisAnalyzer(
                 ContextCompat.getMainExecutor(context), analyzer
             )
-            imageAnalysisTargetSize = CameraController.OutputSize(Size(1280, 960))
-            previewTargetSize = CameraController.OutputSize(Size(1280, 960))
-
+            imageAnalysisTargetSize = CameraController.OutputSize(Size(640, 480))
+            previewTargetSize = CameraController.OutputSize(Size(640, 480))
         }
     }
 
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-//        .drawWithContent {
-//            drawContent()
-//        }
     ) {
         Column(Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .weight(1f)
-                    .aspectRatio(3f / 4)
-            ) {
+            CameraPreview(controller,
+                Modifier
+                    .fillMaxSize()
+                    .onSizeChanged {
+                        previewSize = ScreenSize(
+                            height = it.height.toFloat(),
+                            width = it.width.toFloat()
+                        )
+                    }
+                    .drawWithContent {
+                        drawContent()
 
-                CameraPreview(controller,
-                    Modifier
-                        .fillMaxSize()
-                        .onSizeChanged {
-                            previewSize = ScreenSize(
-                                height = it.height.toFloat(),
-                                width = it.width.toFloat()
+                        points.forEach { point ->
+                            drawCircle(
+                                color = Color.Yellow, radius = 5.dp.toPx(), center = Offset(
+                                    point.coordinate.x, point.coordinate.y
+                                )
                             )
                         }
-                        .drawWithContent {
-                            drawContent()
-
-                            points.forEach { point ->
-                                drawCircle(
-                                    color = Color.Yellow, radius = 5.dp.toPx(), center = Offset(
-                                        point.coordinate.x, point.coordinate.y
-                                    )
-                                )
-                            }
-                        }
-                )
-            }
+                    }
+            )
         }
 
         Column(
@@ -127,20 +119,21 @@ fun MainScreen(viewModel: MainViewModel) {
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
         ) {
-//            Text(
+            Text(
+                text = "",
 //                text = points.joinToString(separator = ", ") {
 //                    it.bodyPart.name + "(${it.score.format(2)})"
 //                    //"(${it.coordinate.x.format(3)})" +
 //                    //"(${it.coordinate.y.format(3)})"
 //                },
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .background(MaterialTheme.colorScheme.primaryContainer)
-//                    .padding(8.dp),
-//                textAlign = TextAlign.Center,
-//                fontSize = 8.sp,
-//                color = MaterialTheme.colorScheme.primary
-//            )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(8.dp),
+                textAlign = TextAlign.Center,
+                fontSize = 8.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
 
     }

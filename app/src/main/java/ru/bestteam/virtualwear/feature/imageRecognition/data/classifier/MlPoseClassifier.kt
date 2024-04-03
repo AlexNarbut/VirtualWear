@@ -42,15 +42,19 @@ class MlPoseClassifier : ImagePoseClassifier {
 
         val posesTask = poseDetector.process(inputImage, rotation)
 
+        val scaleFactorX = screenSize.width / inputImage.width
+        val scaleFactorY = screenSize.height / inputImage.height
+        val scaleFactor = maxOf(scaleFactorX, scaleFactorY)
+
         posesTask.awaitResponse().alsoIfSuccess { pose ->
             val posePoints = mutableListOf<PosePoint>()
             pose.allPoseLandmarks.forEach { poseLandmark ->
                 posePoints.add(
                     PosePoint(
-                        BodyPart.fromTensorInt(poseLandmark.landmarkType),
+                        BodyPart.fromMlInt(poseLandmark.landmarkType),
                         PointCoordinate(
-                            poseLandmark.position3D.x,
-                            poseLandmark.position3D.y,
+                            poseLandmark.position3D.x * scaleFactor,
+                            poseLandmark.position3D.y * scaleFactor,
                             poseLandmark.position3D.z
                         ),
                         0.6f

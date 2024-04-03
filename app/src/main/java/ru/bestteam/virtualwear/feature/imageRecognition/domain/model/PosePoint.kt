@@ -85,58 +85,60 @@ enum class BodyPart {
             16 -> RIGHT_ANKLE
             else -> UNKNOWN
         }
+
+        fun fromMlInt(position: Int): BodyPart = when (position) {
+            PoseLandmark.NOSE -> NOSE
+
+            PoseLandmark.LEFT_EYE_INNER -> LEFT_EYE_INNER
+            PoseLandmark.LEFT_EYE -> LEFT_EYE
+            PoseLandmark.LEFT_EYE_OUTER -> LEFT_EYE_OUTER
+
+            PoseLandmark.RIGHT_EYE_INNER -> RIGHT_EYE_INNER
+            PoseLandmark.RIGHT_EYE -> RIGHT_EYE
+            PoseLandmark.RIGHT_EYE_OUTER -> RIGHT_EYE_OUTER
+
+            PoseLandmark.LEFT_EAR -> LEFT_EAR
+            PoseLandmark.RIGHT_EAR -> RIGHT_EAR
+
+            PoseLandmark.LEFT_MOUTH -> LEFT_MOUTH
+            PoseLandmark.RIGHT_MOUTH -> RIGHT_MOUTH
+
+            PoseLandmark.LEFT_SHOULDER -> LEFT_SHOULDER
+            PoseLandmark.RIGHT_SHOULDER -> RIGHT_SHOULDER
+
+            PoseLandmark.LEFT_ELBOW -> LEFT_ELBOW
+            PoseLandmark.RIGHT_ELBOW -> RIGHT_ELBOW
+
+            PoseLandmark.LEFT_WRIST -> LEFT_WRIST
+            PoseLandmark.RIGHT_WRIST -> RIGHT_WRIST
+
+            PoseLandmark.LEFT_PINKY -> LEFT_PINKY
+            PoseLandmark.RIGHT_PINKY -> RIGHT_PINKY
+
+            PoseLandmark.LEFT_INDEX -> LEFT_INDEX
+            PoseLandmark.RIGHT_INDEX -> RIGHT_INDEX
+
+            PoseLandmark.LEFT_THUMB -> LEFT_THUMB
+            PoseLandmark.RIGHT_THUMB -> RIGHT_THUMB
+
+            PoseLandmark.LEFT_HIP -> LEFT_HIP
+            PoseLandmark.RIGHT_HIP -> RIGHT_HIP
+
+            PoseLandmark.LEFT_KNEE -> LEFT_KNEE
+            PoseLandmark.RIGHT_KNEE -> RIGHT_KNEE
+
+            PoseLandmark.LEFT_ANKLE -> LEFT_ANKLE
+            PoseLandmark.RIGHT_ANKLE -> RIGHT_ANKLE
+
+            PoseLandmark.LEFT_HEEL -> LEFT_HEEL
+            PoseLandmark.RIGHT_HEEL -> RIGHT_HEEL
+
+            PoseLandmark.LEFT_FOOT_INDEX -> LEFT_FOOT_INDEX
+            PoseLandmark.RIGHT_FOOT_INDEX -> RIGHT_FOOT_INDEX
+
+            else -> UNKNOWN
+        }
     }
 
-    fun fromMlInt(position: Int): BodyPart = when (position) {
-        PoseLandmark.NOSE -> NOSE
 
-        PoseLandmark.LEFT_EYE_INNER -> LEFT_EYE_INNER
-        PoseLandmark.LEFT_EYE -> LEFT_EYE
-        PoseLandmark.LEFT_EYE_OUTER -> LEFT_EYE_OUTER
-
-        PoseLandmark.RIGHT_EYE_INNER -> RIGHT_EYE_INNER
-        PoseLandmark.RIGHT_EYE -> RIGHT_EYE
-        PoseLandmark.RIGHT_EYE_OUTER -> RIGHT_EYE_OUTER
-
-        PoseLandmark.LEFT_EAR -> LEFT_EAR
-        PoseLandmark.RIGHT_EAR -> RIGHT_EAR
-
-        PoseLandmark.LEFT_MOUTH -> LEFT_MOUTH
-        PoseLandmark.RIGHT_MOUTH -> RIGHT_MOUTH
-
-        PoseLandmark.LEFT_SHOULDER -> LEFT_SHOULDER
-        PoseLandmark.RIGHT_SHOULDER -> RIGHT_SHOULDER
-
-        PoseLandmark.LEFT_ELBOW -> LEFT_ELBOW
-        PoseLandmark.RIGHT_ELBOW -> RIGHT_ELBOW
-
-        PoseLandmark.LEFT_WRIST -> LEFT_WRIST
-        PoseLandmark.RIGHT_WRIST -> RIGHT_WRIST
-
-        PoseLandmark.LEFT_PINKY -> LEFT_PINKY
-        PoseLandmark.RIGHT_PINKY -> RIGHT_PINKY
-
-        PoseLandmark.LEFT_INDEX -> LEFT_INDEX
-        PoseLandmark.RIGHT_INDEX -> RIGHT_INDEX
-
-        PoseLandmark.LEFT_THUMB -> LEFT_THUMB
-        PoseLandmark.RIGHT_THUMB -> RIGHT_THUMB
-
-        PoseLandmark.LEFT_HIP -> LEFT_HIP
-        PoseLandmark.RIGHT_HIP -> RIGHT_HIP
-
-        PoseLandmark.LEFT_KNEE -> LEFT_KNEE
-        PoseLandmark.RIGHT_KNEE -> RIGHT_KNEE
-
-        PoseLandmark.LEFT_ANKLE -> LEFT_ANKLE
-        PoseLandmark.RIGHT_ANKLE -> RIGHT_ANKLE
-
-        PoseLandmark.LEFT_HEEL -> LEFT_HEEL
-        PoseLandmark.RIGHT_HEEL -> RIGHT_HEEL
-
-        PoseLandmark.LEFT_FOOT_INDEX -> LEFT_FOOT_INDEX
-        PoseLandmark.RIGHT_FOOT_INDEX -> RIGHT_FOOT_INDEX
-
-        else -> UNKNOWN
-    }
 }
