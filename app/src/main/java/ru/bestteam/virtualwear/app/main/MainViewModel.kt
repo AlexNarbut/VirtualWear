@@ -38,17 +38,17 @@ class MainViewModel @Inject constructor(
     init {
         safeLaunch(Dispatchers.Default) {
             inputMainProcessImage.collect { processItem ->
-//                val points = tensorImageClassifier.classify(
-//                    processItem.bitmap,
-//                    processItem.screenSize,
-//                    processItem.rotationDegrees
-//                )
-
-                val points = mlPoseClassifier.classify(
+                val points = tensorImageClassifier.classify(
                     processItem.bitmap,
                     processItem.screenSize,
                     processItem.rotationDegrees
                 )
+
+//                val points = mlPoseClassifier.classify(
+//                    processItem.bitmap,
+//                    processItem.screenSize,
+//                    processItem.rotationDegrees
+//                )
 
                 _detectedPoints.update { points }
             }

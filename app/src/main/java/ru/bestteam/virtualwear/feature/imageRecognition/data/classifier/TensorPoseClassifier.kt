@@ -54,10 +54,14 @@ class TensorPoseClassifier(
 
         val posePoints = mutableListOf<PosePoint>()
 
+        val scaleFactorX = screenSize.width / bitmap.width
+        val scaleFactorY = screenSize.height / bitmap.height
+        val scaleFactor = maxOf(scaleFactorX, scaleFactorY)
+
         for (idx in 0 until KEY_POINT_NUMBER) {
 
-            val x = outputArray[idx * 3 + 1] * screenSize.width
-            val y = outputArray[idx * 3 + 0] * screenSize.height
+            val x = outputArray[idx * 3 + 1] * bitmap.width * scaleFactor
+            val y = outputArray[idx * 3 + 0] * bitmap.height * scaleFactor
             val score = outputArray[idx * 3 + 2]
 
             if (score >= minScore) {
