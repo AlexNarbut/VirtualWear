@@ -17,7 +17,7 @@ import ru.bestteam.virtualwear.ml.AutoModel4
 
 class TensorPoseClassifier(
     context: Context,
-    private val minScore: Float = 0.5f
+    private val minScore: Float = 0.4f
 ) : BitmapPoseClassifier {
     private val poseModel: AutoModel4
 

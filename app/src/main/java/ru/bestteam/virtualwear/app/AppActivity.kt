@@ -1,31 +1,26 @@
 package ru.bestteam.virtualwear.app
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import dagger.hilt.android.AndroidEntryPoint
-import ru.bestteam.virtualwear.app.main.MainViewModel
+import dev.icerock.moko.permissions.compose.BindEffect
 import ru.bestteam.virtualwear.app.navigation.AppHost
 import ru.bestteam.virtualwear.app.navigation.MainDestinations
 import ru.bestteam.virtualwear.app.navigation.rememberAppNavController
 import ru.bestteam.virtualwear.app.ui.theme.MainTheme
 
 @AndroidEntryPoint
-class AppActivity : ComponentActivity() {
+class AppActivity : FragmentActivity() {
+    private val viewModel: AppViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (!hasCameraPermission()) {
-            ActivityCompat.requestPermissions(
-                this, arrayOf(Manifest.permission.CAMERA), 0
-            )
-        }
         setContent {
             MainTheme {
+                BindEffect(viewModel.permissionsController)
+
                 val appNavController = rememberAppNavController()
                 AppHost(
                     appNavController,
@@ -34,8 +29,4 @@ class AppActivity : ComponentActivity() {
             }
         }
     }
-
-    private fun hasCameraPermission() = ContextCompat.checkSelfPermission(
-        this, Manifest.permission.CAMERA
-    ) == PackageManager.PERMISSION_GRANTED
 }
