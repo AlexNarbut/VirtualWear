@@ -73,11 +73,13 @@ dependencies {
     val navVersion = "2.7.7"
     implementation("androidx.navigation:navigation-compose:$navVersion")
 
-    implementation("com.google.dagger:hilt-android:2.44")
+    implementation("com.google.dagger:hilt-android:2.49")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    kapt("com.google.dagger:hilt-compiler:2.44")
+    kapt("com.google.dagger:hilt-compiler:2.49")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("dev.icerock.moko:permissions-compose:0.17.0")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     val cameraxVersion = "1.3.2"
 
@@ -91,9 +93,9 @@ dependencies {
 
     implementation ("com.google.mlkit:pose-detection-accurate:18.0.0-beta4")
 
-    implementation("org.tensorflow:tensorflow-lite-support:0.1.0")
-    implementation("org.tensorflow:tensorflow-lite-metadata:0.1.0")
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.3.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.3.1")
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.0")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

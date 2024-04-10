@@ -4,15 +4,18 @@ import android.util.Size
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,30 +37,111 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
 import ru.bestteam.virtualwear.feature.camera.presentation.CameraPreview
+import ru.bestteam.virtualwear.feature.imageRecognition.domain.model.PosePoint
 
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
-    val context = LocalContext.current
-    val points by viewModel.detectedPoints.collectAsState()
+    val mainState by viewModel.mainState.collectAsState()
+    when (mainState) {
+        MainScreenState.Default -> Unit
+        MainScreenState.PermissionCheck -> {
+            Column {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Проверка разрешений",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .padding(top = 12.dp)
+                        )
+                        Button(
+                            modifier = Modifier
+                                .padding(12.dp),
+                            onClick = { viewModel.prepareScan() },
+                        ) {
+                            Text(
+                                text = "Повторить",
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
+        is MainScreenState.PermissionError -> {
+            val errorState = mainState as MainScreenState.PermissionError
+            Column {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Нет доступа к  ${errorState.permissionName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        if (errorState.needOpenAppSettings) {
+                            Button(
+                                modifier = Modifier
+                                    .padding(12.dp),
+                                onClick = { viewModel.permissionsController.openAppSettings() },
+                            ) {
+                                Text(
+                                    text = "Настройки приложения",
+                                )
+                            }
+                        } else {
+                            Button(
+                                modifier = Modifier
+                                    .padding(12.dp),
+                                onClick = { viewModel.prepareScan() },
+                            ) {
+                                Text(
+                                    text = "Повторить",
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        is MainScreenState.CameraPreview -> {
+            MainCameraPreview(
+                (mainState as MainScreenState.CameraPreview).detectedPoints,
+                viewModel
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalGetImage::class)
+@Composable
+fun MainCameraPreview(
+    detectedPoints: List<PosePoint>,
+    viewModel: MainViewModel
+) {
+    val context = LocalContext.current
     var previewSize by remember { mutableStateOf(ScreenSize()) }
 
     val analyzer = remember {
-        ImageAnalysis.Builder()
-
-        object : ImageAnalysis.Analyzer {
-            @OptIn(ExperimentalGetImage::class)
-            override fun analyze(imageProxy: ImageProxy) {
-                if (imageProxy.image != null) {
-                    viewModel.processImage(
-                        imageProxy.toBitmap(),
-                        previewSize,
-                        imageProxy.imageInfo.rotationDegrees
-                    )
-                }
-                imageProxy.close()
+        ImageAnalysis.Analyzer { imageProxy ->
+            if (imageProxy.image != null) {
+                viewModel.processImage(
+                    imageProxy.toBitmap(),
+                    previewSize,
+                    imageProxy.imageInfo.rotationDegrees
+                )
             }
-
+            imageProxy.close()
         }
     }
 
@@ -89,9 +173,9 @@ fun MainScreen(viewModel: MainViewModel) {
                     .drawWithContent {
                         drawContent()
 
-                        points.forEach { point ->
+                        detectedPoints.forEach { point ->
                             drawCircle(
-                                color = Color.Yellow, radius = 5.dp.toPx(), center = Offset(
+                                color = Color.Yellow, radius = 2.dp.toPx(), center = Offset(
                                     point.coordinate.x, point.coordinate.y
                                 )
                             )
