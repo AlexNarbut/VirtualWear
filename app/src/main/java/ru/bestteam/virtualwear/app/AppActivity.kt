@@ -9,14 +9,14 @@ import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
-import ru.bestteam.virtualwear.app.main.MainScreen
 import ru.bestteam.virtualwear.app.main.MainViewModel
+import ru.bestteam.virtualwear.app.navigation.AppHost
+import ru.bestteam.virtualwear.app.navigation.MainDestinations
+import ru.bestteam.virtualwear.app.navigation.rememberAppNavController
 import ru.bestteam.virtualwear.app.ui.theme.MainTheme
 
 @AndroidEntryPoint
 class AppActivity : ComponentActivity() {
-    private val viewModel: MainViewModel by viewModels()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (!hasCameraPermission()) {
@@ -26,7 +26,11 @@ class AppActivity : ComponentActivity() {
         }
         setContent {
             MainTheme {
-                MainScreen(viewModel)
+                val appNavController = rememberAppNavController()
+                AppHost(
+                    appNavController,
+                    MainDestinations.MAIN_ROUTE
+                )
             }
         }
     }
@@ -35,5 +39,3 @@ class AppActivity : ComponentActivity() {
         this, Manifest.permission.CAMERA
     ) == PackageManager.PERMISSION_GRANTED
 }
-
-fun Float.format(scale: Int) = "%.${scale}f".format(this)

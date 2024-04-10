@@ -46,30 +46,16 @@ fun MainScreen(viewModel: MainViewModel) {
         ImageAnalysis.Builder()
 
         object : ImageAnalysis.Analyzer {
-            private var frameSkipCounter = 0
-            private var frameSkipNumber = 5
-
             @OptIn(ExperimentalGetImage::class)
             override fun analyze(imageProxy: ImageProxy) {
-                if (frameSkipCounter % frameSkipNumber == 0) {
-                    imageProxy.image?.let { image ->
-//                        viewModel.processImageByTensor(
-//                            imageProxy.toBitmap(),
-//                            previewSize,
-//                            imageProxy.imageInfo.rotationDegrees
-//                        )
-
-
-                        viewModel.processImage(
-                            imageProxy.toBitmap(),
-                            previewSize,
-                            imageProxy.imageInfo.rotationDegrees
-                        )
-                    }
-                    frameSkipCounter = 0
+                if (imageProxy.image != null) {
+                    viewModel.processImage(
+                        imageProxy.toBitmap(),
+                        previewSize,
+                        imageProxy.imageInfo.rotationDegrees
+                    )
                 }
                 imageProxy.close()
-                frameSkipCounter++
             }
 
         }
