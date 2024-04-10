@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import ru.bestteam.virtualwear.app.base.BaseViewModel
 import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
@@ -37,21 +38,23 @@ class MainViewModel @Inject constructor(
 
     init {
         safeLaunch(Dispatchers.Default) {
-            inputMainProcessImage.collect { processItem ->
-                val points = tensorImageClassifier.classify(
-                    processItem.bitmap,
-                    processItem.screenSize,
-                    processItem.rotationDegrees
-                )
-
-//                val points = mlPoseClassifier.classify(
+            inputMainProcessImage
+                .debounce(IMAGE_DEBOUNCE)
+                .collect { processItem ->
+//                val points = tensorImageClassifier.classify(
 //                    processItem.bitmap,
 //                    processItem.screenSize,
 //                    processItem.rotationDegrees
 //                )
 
-                _detectedPoints.update { points }
-            }
+                    val points = mlPoseClassifier.classify(
+                        processItem.bitmap,
+                        processItem.screenSize,
+                        processItem.rotationDegrees
+                    )
+
+                    _detectedPoints.update { points }
+                }
         }
     }
 
@@ -65,6 +68,10 @@ class MainViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    private companion object {
+        private const val IMAGE_DEBOUNCE = 15L
     }
 }
 
