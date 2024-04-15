@@ -10,7 +10,8 @@ sealed class MainScreenState {
         val needOpenAppSettings: Boolean
     ) : MainScreenState()
 
-    data class CameraPreview(
-        val detectedPoints : List<PosePoint> = emptyList()
+    data class ArState(
+        val modelName: String? = null,
+        val detectedPoints: List<PosePoint> = emptyList()
     ) : MainScreenState()
 }

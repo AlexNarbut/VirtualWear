@@ -1,9 +1,8 @@
 package ru.bestteam.virtualwear.app.main
 
-import android.content.Context
 import android.graphics.Bitmap
+import android.media.Image
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.icerock.moko.permissions.DeniedAlwaysException
 import dev.icerock.moko.permissions.DeniedException
 import dev.icerock.moko.permissions.Permission
@@ -16,17 +15,16 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import ru.bestteam.virtualwear.app.base.BaseViewModel
 import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
+import ru.bestteam.virtualwear.feature.imageRecognition.convertYuv
 import ru.bestteam.virtualwear.feature.imageRecognition.data.classifier.MlPoseClassifier
-import ru.bestteam.virtualwear.feature.imageRecognition.data.classifier.TensorPoseClassifier
+import ru.bestteam.virtualwear.feature.imageRecognition.domain.ImagePoseClassifier
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    @ApplicationContext context: Context,
     val permissionsController: PermissionsController
 ) : BaseViewModel() {
 
@@ -41,8 +39,11 @@ class MainViewModel @Inject constructor(
 
     private var listenImagesJob: Job? = null
 
-    private val tensorImageClassifier = TensorPoseClassifier(context)
-    private val mlPoseClassifier = MlPoseClassifier()
+    private val imagePoseClassifier: ImagePoseClassifier = MlPoseClassifier()
+
+//    private val tensorImageClassifier = TensorPoseClassifier(context)
+//    private val mlPoseClassifier = MlPoseClassifier()
+//    private val mediapipePoseClassifier = MediaPipePoseClassifier(context)
 
     init {
         prepareScan()
@@ -51,23 +52,21 @@ class MainViewModel @Inject constructor(
     private fun startListenImages() {
         listenImagesJob?.cancel()
         listenImagesJob = safeLaunch(Dispatchers.Default) {
-            _mainState.update { MainScreenState.CameraPreview() }
+            _mainState.update { MainScreenState.ArState() }
             inputMainProcessImage
-                .debounce(IMAGE_DEBOUNCE)
+                //.debounce(IMAGE_DEBOUNCE)
                 .collect { processItem ->
-//                val points = tensorImageClassifier.classify(
-//                    processItem.bitmap,
-//                    processItem.screenSize,
-//                    processItem.rotationDegrees
-//                )
-
-                    val points = mlPoseClassifier.classify(
+                    val points = imagePoseClassifier.classify(
                         processItem.bitmap,
                         processItem.screenSize,
                         processItem.rotationDegrees
                     )
-
-                    _mainState.update { MainScreenState.CameraPreview(points) }
+                    _mainState.update {
+                        MainScreenState.ArState(
+                            MODEL_PATH,
+                            points,
+                        )
+                    }
                 }
         }
     }
@@ -111,12 +110,27 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun processArImage(image: Image, imageSize: ScreenSize, rotationDegrees: Int) {
+        val convertYuv = image.convertYuv()
+        safeLaunch {
+            _inputMainProcessImage.emit(
+                MainProcessImage(
+                    convertYuv,
+                    imageSize,
+                    rotationDegrees
+                )
+            )
+        }
+    }
+
     private companion object {
-        private const val IMAGE_DEBOUNCE = 4L
+        private const val IMAGE_DEBOUNCE = 1L
 
         private val PERMISSION_LIST = listOf(
             Permission.CAMERA
         )
+
+        private const val MODEL_PATH = "models/damaged_helmet.glb"
     }
 }
 

@@ -81,8 +81,9 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    val cameraxVersion = "1.3.2"
+    implementation ("io.github.sceneview:arsceneview:2.1.0")
 
+    val cameraxVersion = "1.3.2"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
@@ -92,10 +93,11 @@ dependencies {
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
 
     implementation ("com.google.mlkit:pose-detection-accurate:18.0.0-beta4")
+    implementation ("com.google.mediapipe:tasks-vision:0.20230731")
 
-    implementation("org.tensorflow:tensorflow-lite-support:0.3.1")
-    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.0")
-    implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0")
+//    implementation("org.tensorflow:tensorflow-lite-support:0.3.1")
+//    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.0")
+//    implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
