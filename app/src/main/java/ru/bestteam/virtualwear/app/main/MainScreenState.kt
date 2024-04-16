@@ -12,6 +12,7 @@ sealed class MainScreenState {
 
     data class ArState(
         val modelName: String? = null,
+        val pointTimeStamp : Long = 0L,
         val detectedPoints: List<PosePoint> = emptyList()
     ) : MainScreenState()
 }

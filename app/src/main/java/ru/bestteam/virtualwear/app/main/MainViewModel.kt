@@ -1,8 +1,12 @@
 package ru.bestteam.virtualwear.app.main
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.hardware.camera2.CameraManager
 import android.media.Image
+import android.view.WindowManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.icerock.moko.permissions.DeniedAlwaysException
 import dev.icerock.moko.permissions.DeniedException
 import dev.icerock.moko.permissions.Permission
@@ -15,18 +19,27 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import ru.bestteam.virtualwear.app.base.BaseViewModel
+import ru.bestteam.virtualwear.feature.camera.CameraUtil
 import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
 import ru.bestteam.virtualwear.feature.imageRecognition.convertYuv
 import ru.bestteam.virtualwear.feature.imageRecognition.data.classifier.MlPoseClassifier
 import ru.bestteam.virtualwear.feature.imageRecognition.domain.ImagePoseClassifier
 import javax.inject.Inject
 
+
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     val permissionsController: PermissionsController
 ) : BaseViewModel() {
+
+    private val cameraUtil = CameraUtil(
+        context.getSystemService(Context.CAMERA_SERVICE) as CameraManager,
+        context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+    )
 
     private val _mainState = MutableStateFlow<MainScreenState>(MainScreenState.Default)
     val mainState: StateFlow<MainScreenState> = _mainState
@@ -53,8 +66,9 @@ class MainViewModel @Inject constructor(
         listenImagesJob?.cancel()
         listenImagesJob = safeLaunch(Dispatchers.Default) {
             _mainState.update { MainScreenState.ArState() }
+
             inputMainProcessImage
-                //.debounce(IMAGE_DEBOUNCE)
+                .debounce(IMAGE_DEBOUNCE)
                 .collect { processItem ->
                     val points = imagePoseClassifier.classify(
                         processItem.bitmap,
@@ -64,6 +78,7 @@ class MainViewModel @Inject constructor(
                     _mainState.update {
                         MainScreenState.ArState(
                             MODEL_PATH,
+                            processItem.timeStamp,
                             points,
                         )
                     }
@@ -98,25 +113,17 @@ class MainViewModel @Inject constructor(
         return true
     }
 
-    fun processImage(bitmap: Bitmap, screenSize: ScreenSize, rotationDegrees: Int) {
-        safeLaunch {
-            _inputMainProcessImage.emit(
-                MainProcessImage(
-                    bitmap,
-                    screenSize,
-                    rotationDegrees
-                )
-            )
-        }
-    }
-
-    fun processArImage(image: Image, imageSize: ScreenSize, rotationDegrees: Int) {
+    fun processArImage(image: Image, timeStamp: Long, cameraId: String) {
         val convertYuv = image.convertYuv()
+        val rotationDegrees = cameraUtil.getCameraSensorToDisplayRotation(cameraId)
+        val size = ScreenSize(height = image.height.toFloat(), width = image.width.toFloat())
+
         safeLaunch {
             _inputMainProcessImage.emit(
                 MainProcessImage(
                     convertYuv,
-                    imageSize,
+                    timeStamp,
+                    size,
                     rotationDegrees
                 )
             )
@@ -124,7 +131,7 @@ class MainViewModel @Inject constructor(
     }
 
     private companion object {
-        private const val IMAGE_DEBOUNCE = 1L
+        private const val IMAGE_DEBOUNCE = 0L
 
         private val PERMISSION_LIST = listOf(
             Permission.CAMERA
@@ -136,6 +143,7 @@ class MainViewModel @Inject constructor(
 
 private data class MainProcessImage(
     val bitmap: Bitmap,
+    val timeStamp: Long,
     val screenSize: ScreenSize,
     val rotationDegrees: Int
 )

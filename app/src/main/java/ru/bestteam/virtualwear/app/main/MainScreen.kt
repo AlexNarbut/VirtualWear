@@ -162,7 +162,6 @@ fun ARPreview(
             mutableStateOf<TrackingFailureReason?>(null)
         }
         var frame by remember { mutableStateOf<Frame?>(null) }
-        var lastImage by remember { mutableStateOf<Frame?>(null) }
         var frameCount by remember { mutableIntStateOf(0) }
 
         ARScene(
@@ -176,7 +175,6 @@ fun ARPreview(
                 }
                 .drawWithContent {
                     drawContent()
-
                     state.detectedPoints.forEach { point ->
 
                         drawCircle(
@@ -209,20 +207,19 @@ fun ARPreview(
             onSessionUpdated = { session, updatedFrame ->
                 frame = updatedFrame
 
+
                 if (frameCount % 30 == 0) {
                     updatedFrame.tryAcquireCameraImage()?.use { image ->
                         viewModel.processArImage(
                             image,
-                            ScreenSize(
-                                width = updatedFrame.camera.imageIntrinsics.imageDimensions[0].toFloat(),
-                                height = updatedFrame.camera.imageIntrinsics.imageDimensions[1].toFloat(),
-                            ),
-                            90
+                            updatedFrame.timestamp,
+                            session.cameraConfig.cameraId
                         )
                         image.close()
                     }
                     frameCount = 0
                 }
+
                 frameCount++
 
 //                if (childNodes.isEmpty()) {
@@ -267,6 +264,8 @@ fun ARPreview(
     }
 }
 
+
+// https://github.com/googlesamples/arcore-ml-sample/blob/main/app/src/main/java/com/google/ar/core/examples/java/ml/AppRenderer.kt
 fun createAnchorNode(
     modelPath: String?,
     engine: Engine,

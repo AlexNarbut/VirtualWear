@@ -42,8 +42,9 @@ class MlPoseClassifier : ImagePoseClassifier {
 
         val posesTask = poseDetector.process(inputImage, rotation)
 
-        val scaleFactorX = screenSize.width / inputImage.width
-        val scaleFactorY = screenSize.height / inputImage.height
+        //may be need only normalizing coordinates
+        val scaleFactorX = 1//screenSize.width / inputImage.width
+        val scaleFactorY = 1//screenSize.height / inputImage.height
         val scaleFactor = maxOf(scaleFactorX, scaleFactorY)
 
         posesTask.awaitResponse().alsoIfSuccess { pose ->
