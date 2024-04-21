@@ -10,9 +10,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,12 +28,14 @@ import com.google.android.filament.Engine
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
 import com.google.ar.core.Frame
+import com.google.ar.core.Session
 import com.google.ar.core.TrackingFailureReason
 import io.github.sceneview.ar.ARScene
 import io.github.sceneview.ar.node.AnchorNode
 import io.github.sceneview.ar.rememberARCameraNode
 import io.github.sceneview.loaders.MaterialLoader
 import io.github.sceneview.loaders.ModelLoader
+import io.github.sceneview.math.Position
 import io.github.sceneview.model.ModelInstance
 import io.github.sceneview.node.CubeNode
 import io.github.sceneview.node.ModelNode
@@ -42,103 +44,38 @@ import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberMaterialLoader
 import io.github.sceneview.rememberModelLoader
 import io.github.sceneview.rememberNodes
-import io.github.sceneview.rememberOnGestureListener
 import io.github.sceneview.rememberView
 import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
-import ru.bestteam.virtualwear.feature.imageRecognition.tryAcquireCameraImage
+import ru.bestteam.virtualwear.feature.imageRecognition.domain.model.PosePoint
 
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val mainState by viewModel.mainState.collectAsState()
+    val debugState by viewModel.debugState.collectAsState()
+
     when (mainState) {
-        MainScreenState.Default -> Unit
-        MainScreenState.PermissionCheck -> {
-            Column {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Проверка разрешений",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
-                        )
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .padding(top = 12.dp)
-                        )
-                        Button(
-                            modifier = Modifier
-                                .padding(12.dp),
-                            onClick = { viewModel.prepareScan() },
-                        ) {
-                            Text(
-                                text = "Повторить",
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        MainScreenState.Default -> viewModel.checkPermissions()
 
-        is MainScreenState.PermissionError -> {
-            val errorState = mainState as MainScreenState.PermissionError
-            Column {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "Нет доступа к  ${errorState.permissionName}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
-                        )
-                        if (errorState.needOpenAppSettings) {
-                            Button(
-                                modifier = Modifier
-                                    .padding(12.dp),
-                                onClick = { viewModel.permissionsController.openAppSettings() },
-                            ) {
-                                Text(
-                                    text = "Настройки приложения",
-                                )
-                            }
-                        } else {
-                            Button(
-                                modifier = Modifier
-                                    .padding(12.dp),
-                                onClick = { viewModel.prepareScan() },
-                            ) {
-                                Text(
-                                    text = "Повторить",
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        MainScreenState.PermissionCheck -> CheckPermission(viewModel::checkPermissions)
+        is MainScreenState.PermissionError -> PermissionError(
+            errorState = mainState as MainScreenState.PermissionError,
+            openSettings = viewModel::openAppSettings,
+            check = viewModel::checkPermissions
+        )
 
-        is MainScreenState.ArState -> {
-            ARPreview(
-                (mainState as MainScreenState.ArState),
-                viewModel
-            )
-//            MainCameraPreview(
-//                (mainState as MainScreenState.CameraPreview).detectedPoints,
-//                viewModel
-//            )
-        }
+        is MainScreenState.ArState -> ARPreview(
+            state = (mainState as MainScreenState.ArState),
+            debugState = debugState,
+            updateFrame = viewModel::updateFrame
+        )
     }
 }
 
 @Composable
 fun ARPreview(
     state: MainScreenState.ArState,
-    viewModel: MainViewModel,
+    debugState: MainScreenDebugState,
+    updateFrame: (session: Session, frame: Frame) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -155,14 +92,23 @@ fun ARPreview(
 
         var previewSize by remember { mutableStateOf(ScreenSize()) }
 
-        var planeRenderer by remember { mutableStateOf(true) }
-
         val modelInstances = remember { mutableListOf<ModelInstance>() }
         var trackingFailureReason by remember {
             mutableStateOf<TrackingFailureReason?>(null)
         }
-        var frame by remember { mutableStateOf<Frame?>(null) }
-        var frameCount by remember { mutableIntStateOf(0) }
+
+        LaunchedEffect(state is MainScreenState.ModelAnchored) {
+            if (state is MainScreenState.ModelAnchored) {
+                childNodes += createAnchorNode(
+                    modelPath = state.modelPath,
+                    engine = engine,
+                    modelLoader = modelLoader,
+                    materialLoader = materialLoader,
+                    modelInstances = modelInstances,
+                    anchor = state.anchor
+                )
+            }
+        }
 
         ARScene(
             modifier = Modifier
@@ -173,17 +119,7 @@ fun ARPreview(
                         width = it.width.toFloat()
                     )
                 }
-                .drawWithContent {
-                    drawContent()
-                    state.detectedPoints.forEach { point ->
-
-                        drawCircle(
-                            color = Color.Yellow, radius = 2.dp.toPx(), center = Offset(
-                                point.coordinate.x, point.coordinate.y
-                            )
-                        )
-                    }
-                },
+                .drawDebugPoints(debugState),
             childNodes = childNodes,
             engine = engine,
             view = view,
@@ -200,67 +136,110 @@ fun ARPreview(
                     Config.LightEstimationMode.ENVIRONMENTAL_HDR
             },
             cameraNode = cameraNode,
-            planeRenderer = planeRenderer,
+            planeRenderer = false,
             onTrackingFailureChanged = {
                 trackingFailureReason = it
             },
-            onSessionUpdated = { session, updatedFrame ->
-                frame = updatedFrame
-
-
-                if (frameCount % 30 == 0) {
-                    updatedFrame.tryAcquireCameraImage()?.use { image ->
-                        viewModel.processArImage(
-                            image,
-                            updatedFrame.timestamp,
-                            session.cameraConfig.cameraId
-                        )
-                        image.close()
-                    }
-                    frameCount = 0
-                }
-
-                frameCount++
-
-//                if (childNodes.isEmpty()) {
-//                    updatedFrame.getUpdatedPlanes()
-//                        .firstOrNull { it.type == Plane.Type.HORIZONTAL_UPWARD_FACING }
-//                        ?.let { it.createAnchorOrNull(it.centerPose) }?.let { anchor ->
-//                            childNodes += createAnchorNode(
-//                                modelPath = state.modelName,
-//                                engine = engine,
-//                                modelLoader = modelLoader,
-//                                materialLoader = materialLoader,
-//                                modelInstances = modelInstances,
-//                                anchor = anchor
-//                            )
-//                        }
-//                }
-            },
-            onGestureListener = rememberOnGestureListener(
-                onSingleTapConfirmed = { motionEvent, node ->
-//                    if (node == null) {
-//                        val hitResults = frame?.hitTest(motionEvent.x, motionEvent.y)
-//                        hitResults?.firstOrNull {
-//                            it.isValid(
-//                                depthPoint = false,
-//                                point = false
-//                            )
-//                        }?.createAnchorOrNull()
-//                            ?.let { anchor ->
-//                                planeRenderer = false
-//                                childNodes += createAnchorNode(
-//                                    modelPath = state.modelName,
-//                                    engine = engine,
-//                                    modelLoader = modelLoader,
-//                                    materialLoader = materialLoader,
-//                                    modelInstances = modelInstances,
-//                                    anchor = anchor
-//                                )
-//                            }
-//                    }
-                })
+            onSessionUpdated = updateFrame,
         )
+    }
+}
+
+private fun Modifier.drawDebugPoints(state: MainScreenDebugState): Modifier {
+    return if (state is MainScreenDebugState.PointsDetected) {
+        drawPoints(state.detectedPoints)
+    } else {
+        this
+    }
+}
+
+private fun Modifier.drawPoints(points: List<PosePoint>): Modifier {
+    return drawWithContent {
+        drawContent()
+        points.forEach { point ->
+            drawCircle(
+                color = Color.Yellow, radius = 2.dp.toPx(), center = Offset(
+                    point.coordinate.x, point.coordinate.y
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun CheckPermission(
+    check: () -> Unit
+) {
+    Column {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Проверка разрешений",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .padding(top = 12.dp)
+                )
+                Button(
+                    modifier = Modifier
+                        .padding(12.dp),
+                    onClick = check,
+                ) {
+                    Text(
+                        text = "Повторить",
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionError(
+    errorState: MainScreenState.PermissionError,
+    openSettings: () -> Unit,
+    check: () -> Unit
+) {
+    Column {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Нет доступа к  ${errorState.permissionName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                if (errorState.needOpenAppSettings) {
+                    Button(
+                        modifier = Modifier
+                            .padding(12.dp),
+                        onClick = openSettings,
+                    ) {
+                        Text(
+                            text = "Настройки приложения",
+                        )
+                    }
+                } else {
+                    Button(
+                        modifier = Modifier
+                            .padding(12.dp),
+                        onClick = check,
+                    ) {
+                        Text(
+                            text = "Повторить",
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -282,7 +261,8 @@ fun createAnchorNode(
             }
         }.removeLast(),
         // Scale to fit in a 0.5 meters cube
-        scaleToUnits = 0.5f
+        scaleToUnits = 0.5f,
+        centerOrigin = Position(x = 0.0f, y = -1.0f, z = 0.0f)
     ).apply {
         // Model Node needs to be editable for independent rotation from the anchor rotation
         isEditable = true

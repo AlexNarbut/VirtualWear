@@ -1,149 +1,142 @@
 package ru.bestteam.virtualwear.app.main
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.hardware.camera2.CameraManager
-import android.media.Image
-import android.view.WindowManager
+import android.util.Log
+import androidx.lifecycle.viewModelScope
+import com.google.ar.core.Frame
+import com.google.ar.core.Session
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.icerock.moko.permissions.DeniedAlwaysException
-import dev.icerock.moko.permissions.DeniedException
-import dev.icerock.moko.permissions.Permission
-import dev.icerock.moko.permissions.PermissionState
 import dev.icerock.moko.permissions.PermissionsController
+import io.github.sceneview.ar.arcore.createAnchorOrNull
+import io.github.sceneview.ar.arcore.isValid
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.take
 import ru.bestteam.virtualwear.app.base.BaseViewModel
-import ru.bestteam.virtualwear.feature.camera.CameraUtil
-import ru.bestteam.virtualwear.feature.camera.domain.ScreenSize
-import ru.bestteam.virtualwear.feature.imageRecognition.convertYuv
-import ru.bestteam.virtualwear.feature.imageRecognition.data.classifier.MlPoseClassifier
-import ru.bestteam.virtualwear.feature.imageRecognition.domain.ImagePoseClassifier
+import ru.bestteam.virtualwear.core.switchIf
+import ru.bestteam.virtualwear.core.switchIfInstance
+import ru.bestteam.virtualwear.feature.imageRecognition.domain.model.BodyPart
+import ru.bestteam.virtualwear.feature.permission.api.PermissionCheckResult
+import ru.bestteam.virtualwear.feature.permission.api.PermissionChecker
 import javax.inject.Inject
 
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    @ApplicationContext context: Context,
-    val permissionsController: PermissionsController
+    private val permissionsController: PermissionsController,
+    private val permissionChecker: PermissionChecker,
+    private val arPoseClassifier: ArPoseClassifier,
 ) : BaseViewModel() {
-
-    private val cameraUtil = CameraUtil(
-        context.getSystemService(Context.CAMERA_SERVICE) as CameraManager,
-        context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    )
+    private val _arSessionFrames = MutableStateFlow<ArSessionFrame?>(null)
 
     private val _mainState = MutableStateFlow<MainScreenState>(MainScreenState.Default)
-    val mainState: StateFlow<MainScreenState> = _mainState
-
-    private val _inputMainProcessImage = MutableSharedFlow<MainProcessImage>(
-        extraBufferCapacity = 2,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
-    private val inputMainProcessImage = _inputMainProcessImage.asSharedFlow()
-
-    private var listenImagesJob: Job? = null
-
-    private val imagePoseClassifier: ImagePoseClassifier = MlPoseClassifier()
-
-//    private val tensorImageClassifier = TensorPoseClassifier(context)
-//    private val mlPoseClassifier = MlPoseClassifier()
-//    private val mediapipePoseClassifier = MediaPipePoseClassifier(context)
-
-    init {
-        prepareScan()
-    }
-
-    private fun startListenImages() {
-        listenImagesJob?.cancel()
-        listenImagesJob = safeLaunch(Dispatchers.Default) {
-            _mainState.update { MainScreenState.ArState() }
-
-            inputMainProcessImage
-                .debounce(IMAGE_DEBOUNCE)
-                .collect { processItem ->
-                    val points = imagePoseClassifier.classify(
-                        processItem.bitmap,
-                        processItem.screenSize,
-                        processItem.rotationDegrees
-                    )
-                    _mainState.update {
-                        MainScreenState.ArState(
-                            MODEL_PATH,
-                            processItem.timeStamp,
-                            points,
-                        )
-                    }
-                }
+    val mainState = _mainState
+        .onStart {
+            detectPoints()
+            anchorModel()
+            debugLog()
         }
+        .stateIn(viewModelScope, SharingStarted.Lazily, _mainState.value)
+
+    val debugState = debugState()
+        .stateIn(viewModelScope, SharingStarted.Lazily, MainScreenDebugState.PointsNotDetected)
+
+    fun updateFrame(session: Session, frame: Frame) {
+        _arSessionFrames.value = ArSessionFrame(session, frame)
     }
 
-    fun prepareScan() {
+    fun checkPermissions() {
+        _mainState.value = MainScreenState.PermissionCheck
+
         safeLaunch {
-            val isAvailable = checkPermission()
-            if (!isAvailable) return@safeLaunch
-            startListenImages()
-        }
-    }
-
-    private suspend fun checkPermission(): Boolean {
-        _mainState.update { MainScreenState.PermissionCheck }
-        PERMISSION_LIST.forEach { permission ->
-            try {
-                val state = permissionsController.getPermissionState(permission)
-                if (state != PermissionState.Granted) {
-                    permissionsController.providePermission(permission)
-                }
-            } catch (ex: DeniedAlwaysException) {
-                _mainState.update { MainScreenState.PermissionError(permission.name, true) }
-                return false
-            } catch (ex: DeniedException) {
-                _mainState.update { MainScreenState.PermissionError(permission.name, false) }
-                return false
+            _mainState.value = when (val result = permissionChecker.checkCamera()) {
+                is PermissionCheckResult.Denied -> MainScreenState.PermissionError(result.permissionName, false)
+                is PermissionCheckResult.DeniedAlways -> MainScreenState.PermissionError(result.permissionName, true)
+                PermissionCheckResult.Granted -> MainScreenState.ArPointsDetecting
             }
         }
-        return true
     }
 
-    fun processArImage(image: Image, timeStamp: Long, cameraId: String) {
-        val convertYuv = image.convertYuv()
-        val rotationDegrees = cameraUtil.getCameraSensorToDisplayRotation(cameraId)
-        val size = ScreenSize(height = image.height.toFloat(), width = image.width.toFloat())
+    fun openAppSettings() {
+        permissionsController.openAppSettings()
+    }
 
-        safeLaunch {
-            _inputMainProcessImage.emit(
-                MainProcessImage(
-                    convertYuv,
-                    timeStamp,
-                    size,
-                    rotationDegrees
-                )
-            )
-        }
+    private fun detectPoints() {
+        Log.d("MainScreen", "detectPoints")
+        val frames = mainState
+            .switchIf(_arSessionFrames) { state -> state is MainScreenState.ArPointsDetecting }
+            .filterNotNull()
+
+        arPoseClassifier.detectPoints(frames)
+            .take(1)
+            .onEach { points -> _mainState.value = MainScreenState.ArPointsDetected(points) }
+            .flowOn(Dispatchers.Default)
+            .launchIn(viewModelScope)
+    }
+
+    private fun anchorModel() {
+        Log.d("MainScreen", "anchorModel")
+        mainState
+            .switchIfInstance<MainScreenState.ArPointsDetected>()
+            .mapNotNull { it.detectedPoints.find { it.bodyPart == BodyPart.LEFT_ANKLE } }
+            .combine(_arSessionFrames.filterNotNull()) { point, arSessionFrame -> point to arSessionFrame.frame }
+            .mapNotNull { (point, frame) ->
+                frame.hitTestInstantPlacement(point.coordinate.x, point.coordinate.y, 0.5f)
+                    .find {
+                        it.isValid(
+                            depthPoint = false,
+                            point = false
+                        )
+                    }
+            }
+            .mapNotNull { hitResult -> hitResult.createAnchorOrNull() }
+            .take(1)
+            .onEach { _mainState.value = MainScreenState.ModelAnchored(it, MODEL_PATH) }
+            .flowOn(Dispatchers.Default)
+            .launchIn(viewModelScope)
+    }
+
+    private fun debugState(): Flow<MainScreenDebugState> {
+        val detectedPoints = arPoseClassifier.detectPoints(_arSessionFrames.filterNotNull())
+            .map { points -> MainScreenDebugState.PointsDetected(points) }
+
+        return _arSessionFrames
+            .map { frame -> frame != null }
+            .distinctUntilChanged()
+            .flatMapLatest { hasFrames ->
+                if (hasFrames) {
+                    detectedPoints
+                } else {
+                    flowOf(MainScreenDebugState.PointsNotDetected)
+                }
+            }
+    }
+
+    private fun debugLog() {
+        mainState
+            .onEach { state -> Log.d("MainScreen", "currentState = $state") }
+            .launchIn(viewModelScope)
     }
 
     private companion object {
-        private const val IMAGE_DEBOUNCE = 0L
-
-        private val PERMISSION_LIST = listOf(
-            Permission.CAMERA
-        )
-
-        private const val MODEL_PATH = "models/damaged_helmet.glb"
+        private const val MODEL_PATH = "models/female.glb"
     }
 }
 
-private data class MainProcessImage(
-    val bitmap: Bitmap,
-    val timeStamp: Long,
-    val screenSize: ScreenSize,
-    val rotationDegrees: Int
-)
+
+
+
+
